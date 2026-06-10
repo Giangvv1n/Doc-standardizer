@@ -1,0 +1,13 @@
+python-docx==1.1.2
+docxtpl==0.19.0
+sentence-transformers==3.0.1
+rapidfuzz==3.9.6
+pydantic==2.8.2
+python-dotenv==1.0.1
+PyYAML==6.0.2
+numpy==1.26.4
+scikit-learn==1.7.2
+pandas==2.2.3
+tqdm==4.66.5
+loguru==0.7.2
+openai==1.40.6

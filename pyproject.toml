@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "doc-standardizer"
+version = "0.1.0"
+description = "AI-assisted Word document standardization tool"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+  { name = "VV1n" }
+]
+dependencies = [
+  "python-docx==1.1.2",
+  "docxtpl==0.19.0",
+  "sentence-transformers==3.0.1",
+  "rapidfuzz==3.9.6",
+  "pydantic==2.8.2",
+  "python-dotenv==1.0.1",
+  "PyYAML==6.0.2",
+  "numpy==1.26.4",
+  "scikit-learn==1.5.1",
+  "pandas==2.2.2",
+  "tqdm==4.66.5",
+  "loguru==0.7.2",
+  "openai==1.40.6"
+]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.black]
+line-length = 88
+target-version = ["py310"]
+
+[tool.isort]
+profile = "black"
+line_length = 88

@@ -1,0 +1,34 @@
+{
+  "sections": [
+    {
+      "name": "Thông tin doanh nghiệp",
+      "placeholder": "company_info",
+      "required": true
+    },
+    {
+      "name": "Mục tiêu dự án",
+      "placeholder": "project_objective",
+      "required": true
+    },
+    {
+      "name": "Phạm vi công việc",
+      "placeholder": "scope_of_work",
+      "required": true
+    },
+    {
+      "name": "Kế hoạch triển khai",
+      "placeholder": "implementation_plan",
+      "required": false
+    },
+    {
+      "name": "Rủi ro",
+      "placeholder": "risks",
+      "required": false
+    },
+    {
+      "name": "Kết luận",
+      "placeholder": "conclusion",
+      "required": false
+    }
+  ]
+}
