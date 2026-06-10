@@ -103,3 +103,26 @@ def test_renderer_and_end_to_end(sample_docx_path: Path, tmp_path: Path) -> None
         assert "Nội dung mục tiêu dự án" in text_content
     finally:
         settings.output_dir = original_output_dir
+
+
+def test_dynamic_template_extraction(tmp_path: Path) -> None:
+    """Verifies that DocxRenderer.extract_template_schema correctly parses headers and placeholders from template files."""
+    tpl_path = tmp_path / "custom_template.docx"
+    doc = docx.Document()
+    
+    # Add a custom heading
+    doc.add_heading("Giới thiệu công ty", level=1)
+    doc.add_paragraph("{{p intro_info }}")
+    
+    # Add another custom heading
+    doc.add_heading("Lịch trình cụ thể", level=1)
+    doc.add_paragraph("{{p schedule_info }}")
+    
+    doc.save(str(tpl_path))
+    
+    # Extract
+    schema = DocxRenderer.extract_template_schema(tpl_path)
+    
+    assert len(schema) == 2
+    assert schema["Giới thiệu công ty"] == "intro_info"
+    assert schema["Lịch trình cụ thể"] == "schedule_info"

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import argparse
 from datetime import datetime
 from pathlib import Path
 from loguru import logger
@@ -130,6 +131,42 @@ def process_document(
     return result
 
 
+def parse_args() -> argparse.Namespace:
+    """Parses command-line arguments for the standardization tool."""
+    parser = argparse.ArgumentParser(description="AI-assisted Word Document Standardization Tool")
+    parser.add_argument(
+        "--template", "-t",
+        type=str,
+        default=None,
+        help="Path to standard template .docx file"
+    )
+    parser.add_argument(
+        "--input", "-i",
+        type=str,
+        default=None,
+        help="Path to input .docx file or directory containing .docx files"
+    )
+    parser.add_argument(
+        "--output", "-o",
+        type=str,
+        default=None,
+        help="Path to output directory"
+    )
+    parser.add_argument(
+        "--use-llm",
+        action="store_true",
+        default=None,
+        help="Enable OpenAI LLM fallback for unmatched sections"
+    )
+    parser.add_argument(
+        "--no-llm",
+        action="store_true",
+        default=None,
+        help="Disable OpenAI LLM fallback"
+    )
+    return parser.parse_args()
+
+
 def main() -> None:
     # Set up folders and logs
     if sys.platform.startswith("win"):
@@ -141,24 +178,58 @@ def main() -> None:
             
     setup_logging()
     
+    args = parse_args()
+    
+    # Override settings dynamically based on CLI args
+    template_path = Path(args.template) if args.template else settings.template_path
+    
+    if args.output:
+        settings.output_dir = Path(args.output)
+        settings.output_dir.mkdir(parents=True, exist_ok=True)
+        
+    if args.use_llm is not None:
+        settings.use_llm_fallback = True
+    elif args.no_llm is not None:
+        settings.use_llm_fallback = False
+        
     logger.info("Initializing standardization components...")
+    
+    # 1. Initialize Renderer with specified template path
+    renderer = DocxRenderer(template_path=template_path)
+    
+    # 2. Get dynamic canonical sections from template
+    canonical_sections = list(renderer.placeholder_mapping.keys())
+    logger.info(f"Using template sections: {canonical_sections}")
+    
+    # 3. Initialize Matcher with dynamic canonical sections
+    matcher = SectionMatcher(canonical_sections=canonical_sections)
+    
     reader = DocxReader()
     segmenter = DocumentSegmenter()
-    matcher = SectionMatcher()
-    renderer = DocxRenderer()
     fallback_client = LLMFallback()
     report_gen = ReportGenerator()
     
-    # Scan input directory for Word files
-    input_dir = settings.input_dir
-    word_files = [
-        f for f in input_dir.iterdir()
-        if f.is_file() and f.suffix.lower() == ".docx" and not f.name.startswith("~$")
-    ]
+    # Resolve input path
+    input_arg = args.input if args.input else str(settings.input_dir)
+    input_path = Path(input_arg)
     
+    word_files = []
+    if input_path.is_file():
+        if input_path.suffix.lower() == ".docx" and not input_path.name.startswith("~$"):
+            word_files.append(input_path)
+    elif input_path.is_dir():
+        word_files = [
+            f for f in input_path.iterdir()
+            if f.is_file() and f.suffix.lower() == ".docx" and not f.name.startswith("~$")
+        ]
+    else:
+        logger.error(f"Input path '{input_arg}' does not exist or is not a valid directory/file.")
+        print(f"\nĐường dẫn đầu vào '{input_arg}' không hợp lệ hoặc không tồn tại.")
+        return
+        
     if not word_files:
-        logger.warning(f"No .docx files found in input directory: {input_dir}")
-        print(f"\nHãy đặt các tệp tin Word cần chuẩn hóa vào thư mục: {input_dir.absolute()}")
+        logger.warning(f"No .docx files found to process at: {input_path}")
+        print(f"\nKhông tìm thấy tệp tin Word cần chuẩn hóa tại: {input_path.absolute()}")
         return
 
     logger.info(f"Found {len(word_files)} document(s) to process.")

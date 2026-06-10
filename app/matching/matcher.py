@@ -32,8 +32,10 @@ from app.segmentation.segmenter import DocumentSection
 class SectionMatcher:
     """Matches document sections to canonical sections using synonyms, fuzzy matching, and embeddings."""
 
-    def __init__(self) -> None:
-        self.canonical_sections: list[str] = self._load_canonical_sections()
+    def __init__(self, canonical_sections: list[str] | None = None) -> None:
+        self.canonical_sections: list[str] = (
+            canonical_sections if canonical_sections is not None else self._load_canonical_sections()
+        )
         self.synonyms: dict[str, list[str]] = self._load_synonyms()
         
         self.model: SentenceTransformer | None = None

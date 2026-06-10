@@ -13,15 +13,83 @@ from app.constants import DEFAULT_SECTION_PLACEHOLDERS
 from app.segmentation.segmenter import DocumentSection
 
 
+import re
+import docx
+
+
 class DocxRenderer:
     """Renders standardized word documents by inserting matching section blocks into a standard template."""
 
-    def __init__(self) -> None:
-        self.template_path = settings.template_path
+    def __init__(self, template_path: Path | None = None) -> None:
+        self.template_path = template_path if template_path is not None else settings.template_path
         self.placeholder_mapping = self._load_placeholder_mapping()
 
+    @staticmethod
+    def extract_template_schema(template_path: Path) -> dict[str, str]:
+        """
+        Scans the template document to find placeholders of type {{p placeholder}} or {{placeholder}}
+        and maps them to their closest preceding heading text.
+        """
+        if not template_path.exists():
+            logger.warning(f"Template path {template_path} does not exist. Cannot extract dynamic schema.")
+            return {}
+
+        try:
+            doc = docx.Document(str(template_path))
+            placeholder_pattern = re.compile(r"\{\{\s*(?:p\s+)?(\w+)\s*\}\}")
+            
+            mapping = {}
+            current_heading = None
+            
+            from app.constants import COMMON_HEADING_STYLES, HEADING_NUMBER_PATTERNS
+            heading_regexes = [re.compile(p) for p in HEADING_NUMBER_PATTERNS]
+            
+            for p in doc.paragraphs:
+                text = p.text.strip()
+                if not text:
+                    continue
+                
+                # Detect if paragraph is a heading
+                style_name = p.style.name if p.style else ""
+                is_heading = False
+                
+                if style_name in COMMON_HEADING_STYLES:
+                    is_heading = True
+                elif len(text) <= 120 and len(text.split()) <= 15:
+                    for regex in heading_regexes:
+                        if regex.match(text):
+                            is_heading = True
+                            break
+                    
+                    runs = [r for r in p.runs if r.text.strip()]
+                    if runs and all(r.bold for r in runs):
+                        is_heading = True
+                        
+                if is_heading:
+                    current_heading = text
+                    
+                # Check for placeholder
+                match = placeholder_pattern.search(text)
+                if match:
+                    placeholder_var = match.group(1)
+                    sec_name = current_heading if current_heading else placeholder_var.replace("_", " ").title()
+                    mapping[sec_name] = placeholder_var
+                    current_heading = None
+                    
+            logger.info(f"Dynamically extracted {len(mapping)} placeholder mappings from template.")
+            return mapping
+        except Exception as e:
+            logger.error(f"Failed to dynamically extract template schema from {template_path}: {e}")
+            return {}
+
     def _load_placeholder_mapping(self) -> dict[str, str]:
-        """Loads section-to-placeholder mappings from the schema JSON file."""
+        """Loads section-to-placeholder mappings dynamically from the template, falling back to schema JSON or default constants."""
+        # Try dynamic extraction first
+        dynamic_mapping = self.extract_template_schema(self.template_path)
+        if dynamic_mapping:
+            return dynamic_mapping
+
+        # Fallback 1: section_schema.json
         schema_path = settings.section_schema_path
         if schema_path.exists():
             try:
@@ -35,6 +103,7 @@ class DocxRenderer:
             except Exception as e:
                 logger.error(f"Error reading placeholder mapping from schema {schema_path}: {e}")
 
+        # Fallback 2: Default constants
         logger.info("Using default placeholder mapping.")
         return dict(DEFAULT_SECTION_PLACEHOLDERS)
 
